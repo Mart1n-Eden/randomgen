@@ -37,6 +37,13 @@ func AddItem(entity interface{}) error {
 	if res := db.Create(entity); res.Error != nil {
 		return res.Error
 	}
+	
+	return nil
+}
 
+func TakeItem(id string, entity interface{}) error {
+	if res := db.Where("id = ?", id).First(entity); res.Error != nil {
+		return res.Error
+	}
 	return nil
 }

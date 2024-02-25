@@ -47,7 +47,7 @@ func Generate(w http.ResponseWriter, r *http.Request) {
 		Val: value,
 	}
 
-	res.PlaceDB()
+	res.PutIntoDB()
 
 	json.NewEncoder(w).Encode(res)
 }
@@ -75,11 +75,26 @@ func (p *GenRequest) GenValue() string {
 	return string(value)
 }
 
-func (p *GenResponse) PlaceDB() {
-	// err := db.Create(p)
-	database.AddItem(*p)
+func (p *GenResponse) PutIntoDB() {
+	if err := database.AddItem(*p); err != nil {
+		panic(err)
+	}
+}
+
+func (p *GenResponse) GetFromDB() {
+	if err := database.TakeItem(p.ID, p); err != nil {
+		panic(err)
+	}
 }
 
 func Retrieve(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
+	}
+	
+	var res GenResponse
+	res.ID = r.URL.Query().Get("id")
+	res.GetFromDB()
 
+	json.NewEncoder(w).Encode(res)
 }
