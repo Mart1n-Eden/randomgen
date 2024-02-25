@@ -32,3 +32,11 @@ func Init(entity interface{}) {
 		panic(err)
 	}
 }
+
+func AddItem(entity interface{}) error {
+	if res := db.Create(entity); res.Error != nil {
+		return res.Error
+	}
+
+	return nil
+}

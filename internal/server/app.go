@@ -19,6 +19,15 @@ type GenResponse struct {
 	Val string    `json:"value"`
 }
 
+func Run() {
+	database.Init(GenResponse{})
+
+	http.HandleFunc("/api/generate", Generate)
+	http.HandleFunc("/api/retrieve", Retrieve)
+
+	http.ListenAndServe(":8080", nil)
+}
+
 func Generate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -67,7 +76,8 @@ func (p *GenRequest) GenValue() string {
 }
 
 func (p *GenResponse) PlaceDB() {
-	db.Create(p)
+	// err := db.Create(p)
+	database.AddItem(*p)
 }
 
 func Retrieve(w http.ResponseWriter, r *http.Request) {
