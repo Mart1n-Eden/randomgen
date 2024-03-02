@@ -1,9 +1,12 @@
 package server
 
 import (
-	"net/http"
 	"encoding/json"
+	"errors"
 	"math/rand"
+	"net/http"
+	"os"
+	"os/signal"
 	"github.com/google/uuid"
 
 	"github.com/Mart1n-Eden/randomgen/internal/database"
@@ -16,7 +19,7 @@ type GenRequest struct {
 
 type GenResponse struct {
 	ID  string `json:"id"`
-	Val string    `json:"value"`
+	Val string `json:"value"`
 }
 
 func Run() {
@@ -25,7 +28,16 @@ func Run() {
 	http.HandleFunc("/api/generate", Generate)
 	http.HandleFunc("/api/retrieve", Retrieve)
 
-	http.ListenAndServe(":8080", nil)
+	go func() {
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			panic(err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, os.Interrupt)
+
+	<-quit
 }
 
 func Generate(w http.ResponseWriter, r *http.Request) {
@@ -40,10 +52,13 @@ func Generate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 	}
 
-	value := req.GenValue()
+	value, err := req.GenValue()
+	if err != nil {
+		http.Error(w, "Invalid type", http.StatusBadRequest)
+	}
 
-	res := GenResponse {
-		ID: uuid.NewString(),
+	res := GenResponse{
+		ID:  uuid.NewString(),
 		Val: value,
 	}
 
@@ -52,7 +67,7 @@ func Generate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func (p *GenRequest) GenValue() string {
+func (p *GenRequest) GenValue() (string, error) {
 	var charset string
 	switch p.Type {
 	case "alpha":
@@ -64,7 +79,8 @@ func (p *GenRequest) GenValue() string {
 	case "guid":
 		charset = "abcdef0123456789"
 	default:
-		charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+		// charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+		return string(""), errors.New("Invalid type")
 	}
 
 	value := make([]byte, p.Length)
@@ -72,7 +88,7 @@ func (p *GenRequest) GenValue() string {
 		value[i] = charset[rand.Intn(len(charset))]
 	}
 
-	return string(value)
+	return string(value), nil
 }
 
 func (p *GenResponse) PutIntoDB() {
@@ -91,7 +107,7 @@ func Retrieve(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
 	}
-	
+
 	var res GenResponse
 	res.ID = r.URL.Query().Get("id")
 	res.GetFromDB()
